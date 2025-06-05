@@ -12,7 +12,7 @@ client.tls_insecure_set(True)
 client.on_message = on_message
 
 print("Waiting 35 seconds to test message expiry...")
-time.sleep(35)
+time.sleep(10)
 
 client.connect("localhost", 8883)
 client.subscribe("test/topic", qos=1)

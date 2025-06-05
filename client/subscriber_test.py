@@ -6,6 +6,7 @@ def on_message(client, userdata, msg):
     print(f"Received retained message: {msg.payload.decode()}")
 
 client = Client()
+client._clean_session = True  # RETAINED MESSAGES
 client.username_pw_set("salsabila", "Salsa123")
 client.tls_set("certs/ca.crt", tls_version=ssl.PROTOCOL_TLSv1_2)
 client.tls_insecure_set(True)

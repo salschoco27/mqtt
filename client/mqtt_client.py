@@ -4,8 +4,37 @@ import uuid
 from paho.mqtt.client import Client
 import paho.mqtt.properties as properties
 from paho.mqtt.packettypes import PacketTypes
+from collections import deque
+import threading
 
 # === Callback saat berhasil terkoneksi ===
+
+
+# Rate limit: max N messages per 10 seconds
+MAX_MSG_PER_10S = 5
+msg_timestamps = deque()
+
+def can_send_message():
+    now = time.time()
+    # Remove timestamps older than 10 seconds
+    while msg_timestamps and now - msg_timestamps[0] > 10:
+        msg_timestamps.popleft()
+    return len(msg_timestamps) < MAX_MSG_PER_10S
+
+def record_message_sent():
+    msg_timestamps.append(time.time())
+
+# Wrap client.publish to enforce rate limit
+_real_publish = Client.publish
+def rate_limited_publish(self, *args, **kwargs):
+    if can_send_message():
+        record_message_sent()
+        return _real_publish(self, *args, **kwargs)
+    else:
+        print("Rate limit exceeded: Try again later.")
+        return None
+
+Client.publish = rate_limited_publish
 def on_connect(client, userdata, flags, rc, properties=None):
     print("Connected with result code", rc)
     client.subscribe("test/topic", qos=1)
@@ -61,7 +90,7 @@ client.loop_start()
 
 # === Properti untuk Message Expiry dan Request-Response ===
 props = properties.Properties(PacketTypes.PUBLISH)
-props.MessageExpiryInterval = 30  # expire in 30s
+props.MessageExpiryInterval = 10  # expire in 10s
 props.ResponseTopic = "response/topic"
 props.CorrelationData = b'unique-request-123'
 
@@ -80,3 +109,26 @@ time.sleep(10)
 # === Akhiri koneksi ===
 client.loop_stop()
 client.disconnect()
+
+# === Interactive request sending ===
+while True:
+    try:
+        text = input("Enter message to send (or 'exit' to quit): ")
+        if text.lower() == 'exit':
+            break
+
+        # Set new CorrelationData for each request
+        req_props = properties.Properties(PacketTypes.PUBLISH)
+        req_props.MessageExpiryInterval = 10
+        req_props.ResponseTopic = "response/topic"
+        req_props.CorrelationData = str(uuid.uuid4()).encode()
+
+        client.publish(
+            topic="test/topic",
+            payload=text,
+            qos=1,
+            retain=False,
+            properties=req_props
+        )
+    except KeyboardInterrupt:
+        break

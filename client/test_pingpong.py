@@ -5,7 +5,7 @@ from paho.mqtt.client import Client
 def on_connect(client, userdata, flags, rc, properties=None):
     print("[Ping-Pong Test] Connected with result code:", rc)
 
-def on_disconnect(client, userdata, rc, properties=None):  # <--- fix here
+def on_disconnect(client, userdata, rc, properties=None):  
     if rc != 0:
         print("[Ping-Pong Test] Unexpected disconnect!")
     else:
@@ -23,7 +23,7 @@ client.connect("localhost", 8883, keepalive=10)
 client.loop_start()
 
 print("Idle for 60 seconds... watch for disconnects or stable connection.")
-time.sleep(60)
+time.sleep(15)
 
 client.loop_stop()
 client.disconnect()
